@@ -1,0 +1,49 @@
+name: Sync Notion to Blog
+
+on:
+  # 10분마다 자동 실행
+  schedule:
+    - cron: "*/10 * * * *"
+
+  # 수동으로도 실행 가능 (GitHub Actions 탭에서 Run workflow 버튼)
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Notion sync
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DB_PROJECTS: ${{ secrets.NOTION_DB_PROJECTS }}
+          NOTION_DB_CLASSES: ${{ secrets.NOTION_DB_CLASSES }}
+        run: npx tsx scripts/sync-notion.ts
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git diff --quiet && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add posts/
+          git commit -m "chore: sync notion posts $(date +'%Y-%m-%d %H:%M')"
+          git push
+        # Vercel은 main 브랜치 push 감지 후 자동 배포됨
