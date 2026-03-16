@@ -1,8 +1,6 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
-import { remark } from "remark";
-import html from "remark-html";
 
 const postsDirectory = path.join(process.cwd(), "posts");
 
@@ -14,7 +12,8 @@ export interface PostMeta {
 }
 
 export interface Post extends PostMeta {
-  contentHtml: string;
+  content: string;
+  tags: string[];
 }
 
 export function getAllPosts(): PostMeta[] {
@@ -39,29 +38,52 @@ export function getAllPosts(): PostMeta[] {
   return posts.sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
-export function getAllSlugs(): string[] {
-  const fileNames = fs.readdirSync(postsDirectory);
-  return fileNames
-    .filter((name) => name.endsWith(".mdx") || name.endsWith(".md"))
-    .map((name) => name.replace(/\.mdx?$/, ""));
+/**
+ * Recursively find all post slugs under a category directory.
+ * Returns slug arrays for catch-all routes, e.g. ["기초컴퓨터그래픽스", "graphics0312"]
+ */
+export function getAllSlugsUnder(category: string): string[][] {
+  const base = path.join(postsDirectory, category);
+  if (!fs.existsSync(base)) return [];
+  return collectSlugs(base);
 }
 
-export async function getPostBySlug(slug: string): Promise<Post> {
-  const mdxPath = path.join(postsDirectory, `${slug}.mdx`);
-  const mdPath = path.join(postsDirectory, `${slug}.md`);
+function collectSlugs(dir: string): string[][] {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const slugs: string[][] = [];
+
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      const sub = collectSlugs(path.join(dir, entry.name));
+      for (const s of sub) {
+        slugs.push([entry.name, ...s]);
+      }
+    } else if (entry.name.endsWith(".mdx") || entry.name.endsWith(".md")) {
+      slugs.push([entry.name.replace(/\.mdx?$/, "")]);
+    }
+  }
+
+  return slugs;
+}
+
+/**
+ * Get a post by its full path relative to the posts directory.
+ * e.g. getPostByPath("classes/기초컴퓨터그래픽스/graphics0312")
+ */
+export function getPostByPath(relativePath: string): Post {
+  const mdxPath = path.join(postsDirectory, `${relativePath}.mdx`);
+  const mdPath = path.join(postsDirectory, `${relativePath}.md`);
   const fullPath = fs.existsSync(mdxPath) ? mdxPath : mdPath;
 
   const fileContents = fs.readFileSync(fullPath, "utf8");
   const { data, content } = matter(fileContents);
 
-  const processed = await remark().use(html).process(content);
-  const contentHtml = processed.toString();
-
   return {
-    slug,
-    title: data.title ?? slug,
+    slug: relativePath,
+    title: data.title ?? path.basename(relativePath),
     date: data.date ?? "",
     summary: data.summary ?? "",
-    contentHtml,
+    content,
+    tags: data.tags ?? [],
   };
 }

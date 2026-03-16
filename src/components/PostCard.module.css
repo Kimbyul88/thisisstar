@@ -1,0 +1,29 @@
+.card {
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.card:last-of-type {
+  border-bottom: none;
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.title a:hover {
+  color: var(--accent);
+}
+
+.meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.summary {
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}

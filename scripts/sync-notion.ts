@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-
+import "dotenv/config";
 // ========================================
 // 타입 정의
 // ========================================
@@ -27,7 +27,7 @@ interface NotionBlock {
 
 interface DBConfig {
   id: string;
-  folder: string; // "projects" | "class"
+  folder: string; // "projects" | "classes"
   subFolderProp: "category" | "className"; // 서브폴더를 결정하는 속성명
 }
 
@@ -43,7 +43,7 @@ const DB_CONFIGS: DBConfig[] = [
   },
   {
     id: process.env.NOTION_DB_CLASSES!,
-    folder: "class",
+    folder: "classes",
     subFolderProp: "className",
   },
 ];
@@ -94,7 +94,7 @@ async function getBlocks(pageId: string): Promise<NotionBlock[]> {
   do {
     const data: { results: NotionBlock[]; next_cursor?: string } =
       await notionFetch(
-        `/blocks/${pageId}/children${cursor ? `?start_cursor=${cursor}` : ""}`
+        `/blocks/${pageId}/children${cursor ? `?start_cursor=${cursor}` : ""}`,
       );
     blocks.push(...data.results);
     cursor = data.next_cursor;
@@ -106,16 +106,18 @@ async function getBlocks(pageId: string): Promise<NotionBlock[]> {
 // ========================================
 // Notion 블록 → 마크다운 변환
 // ========================================
-function richTextToMd(richTexts: Array<{
-  plain_text: string;
-  annotations?: {
-    bold?: boolean;
-    italic?: boolean;
-    code?: boolean;
-    strikethrough?: boolean;
-  };
-  href?: string | null;
-}>): string {
+function richTextToMd(
+  richTexts: Array<{
+    plain_text: string;
+    annotations?: {
+      bold?: boolean;
+      italic?: boolean;
+      code?: boolean;
+      strikethrough?: boolean;
+    };
+    href?: string | null;
+  }>,
+): string {
   return richTexts
     .map((t) => {
       let text = t.plain_text;
@@ -151,13 +153,13 @@ function blockToMd(block: NotionBlock): string {
     }
     case "bulleted_list_item": {
       const text = richTextToMd(
-        (b.bulleted_list_item as { rich_text: [] }).rich_text
+        (b.bulleted_list_item as { rich_text: [] }).rich_text,
       );
       return `- ${text}\n`;
     }
     case "numbered_list_item": {
       const text = richTextToMd(
-        (b.numbered_list_item as { rich_text: [] }).rich_text
+        (b.numbered_list_item as { rich_text: [] }).rich_text,
       );
       return `1. ${text}\n`;
     }
@@ -194,9 +196,7 @@ function blockToMd(block: NotionBlock): string {
         file?: { url: string };
       };
       const url =
-        image.type === "external"
-          ? image.external!.url
-          : image.file!.url;
+        image.type === "external" ? image.external!.url : image.file!.url;
       return `![image](${url})\n\n`;
     }
     case "bookmark": {
@@ -215,14 +215,12 @@ async function blocksToMarkdown(blocks: NotionBlock[]): Promise<string> {
 // ========================================
 // MDX 파일 생성
 // ========================================
-function buildFrontmatter(
-  page: NotionPage,
-  subFolder: string
-): string {
+function buildFrontmatter(page: NotionPage, subFolder: string): string {
   const title =
     page.properties.title.title.map((t) => t.plain_text).join("") || "Untitled";
   const tags = page.properties.tags.multi_select.map((t) => t.name);
-  const date = page.properties.date.date?.start ?? new Date().toISOString().split("T")[0];
+  const date =
+    page.properties.date.date?.start ?? new Date().toISOString().split("T")[0];
 
   return `---
 title: "${title.replace(/"/g, '\\"')}"
@@ -244,8 +242,7 @@ async function syncDB(config: DBConfig) {
   console.log(`  Found ${pages.length} published pages`);
 
   for (const page of pages) {
-    const slug =
-      page.properties.slug.rich_text[0]?.plain_text?.trim();
+    const slug = page.properties.slug.rich_text[0]?.plain_text?.trim();
 
     if (!slug) {
       const title = page.properties.title.title
@@ -263,12 +260,12 @@ async function syncDB(config: DBConfig) {
 
     // 저장 경로 결정
     // ex) posts/projects/frontend/blog-ai-agent.mdx
-    //     posts/class/기초컴퓨터그래픽스/graphics0312.mdx
+    //     posts/classes/기초컴퓨터그래픽스/graphics0312.mdx
     const filePath = path.join(
       POSTS_DIR,
       config.folder,
       subFolder,
-      `${slug}.mdx`
+      `${slug}.mdx`,
     );
 
     // 폴더 없으면 자동 생성
