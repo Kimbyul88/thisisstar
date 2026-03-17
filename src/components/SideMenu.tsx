@@ -2,18 +2,34 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronRight } from "lucide-react";
-import { fetchCategoryTree, type TreeNode } from "@/lib/actions";
+import { fetchSubcategories, type Subcategory } from "@/lib/actions";
 
-interface CategoryConfig {
-  label: string;
-  key: string;
-}
-
-const CATEGORIES: CategoryConfig[] = [
-  { label: "Classes", key: "classes" },
-  { label: "Projects", key: "projects" },
+const CATEGORIES = [
+  { label: "CLASSES", key: "classes" },
+  { label: "PROJECTS", key: "projects" },
 ];
+
+const ease = [0.22, 1, 0.36, 1] as const;
+
+const menuVariants = {
+  closed: { opacity: 0, clipPath: "circle(0% at 50% 100%)" },
+  open: {
+    opacity: 1,
+    clipPath: "circle(150% at 50% 100%)",
+    transition: { duration: 0.7, ease },
+  },
+};
+
+const linkVariants = {
+  closed: { y: 40, opacity: 0 },
+  open: (i: number) => ({
+    y: 0,
+    opacity: 1,
+    transition: { delay: 0.2 + i * 0.1, duration: 0.5, ease },
+  }),
+};
 
 interface SideMenuProps {
   isOpen: boolean;
@@ -22,15 +38,15 @@ interface SideMenuProps {
 
 export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [trees, setTrees] = useState<Record<string, TreeNode[]>>({});
+  const [subs, setSubs] = useState<Record<string, Subcategory[]>>({});
 
   const toggle = (key: string) => {
     const next = !expanded[key];
     setExpanded((prev) => ({ ...prev, [key]: next }));
 
-    if (next && !trees[key]) {
-      fetchCategoryTree(key).then((nodes) =>
-        setTrees((prev) => ({ ...prev, [key]: nodes })),
+    if (next && !subs[key]) {
+      fetchSubcategories(key).then((items) =>
+        setSubs((prev) => ({ ...prev, [key]: items })),
       );
     }
   };
@@ -47,147 +63,105 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   }, [isOpen]);
 
   return (
-    <>
-      {/* Overlay */}
-      <div
-        className={`fixed inset-0 bg-black/50 z-90 transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-        onClick={onClose}
-      />
-
-      {/* Panel */}
-      <nav
-        className={`fixed top-0 left-0 h-full w-[85vw] sm:w-[40vw] lg:w-[33vw] bg-black z-100 flex flex-col transition-transform duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        {/* Close button */}
-        <div className="flex justify-end p-6">
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial="closed"
+          animate="open"
+          exit="closed"
+          variants={menuVariants}
+          className="fixed inset-0 z-100 bg-white text-black/40 flex flex-col justify-center px-8 md:px-24"
+        >
+          {/* Close */}
           <button
             onClick={onClose}
-            className="text-white/70 hover:text-white transition-colors"
+            className="absolute top-8 right-8 md:top-12 md:right-12 p-4 bg-black/5 rounded-full hover:bg-black/10 transition-colors"
           >
             <X size={24} />
           </button>
-        </div>
 
-        {/* Navigation */}
-        <div className="flex-1 overflow-y-auto px-8 pb-12">
-          {/* Home */}
-          <Link
-            href="/"
-            onClick={onClose}
-            className="block text-white text-2xl font-medium tracking-wide hover:text-white/70 transition-colors mb-8"
-          >
-            Home
-          </Link>
-
-          {/* Expandable categories */}
-          {CATEGORIES.map((cat) => (
-            <div key={cat.key} className="mb-6">
-              <button
-                onClick={() => toggle(cat.key)}
-                className="flex items-center gap-2 text-white text-2xl font-medium tracking-wide hover:text-white/70 transition-colors w-full text-left"
-              >
-                <ChevronRight
-                  size={18}
-                  className={`transition-transform duration-200 ${
-                    expanded[cat.key] ? "rotate-90" : ""
-                  }`}
-                />
-                {cat.label}
-              </button>
-
-              {/* Subfolders & files */}
-              <div
-                className={`overflow-hidden transition-all duration-300 ${
-                  expanded[cat.key]
-                    ? "max-h-125 opacity-100 mt-3"
-                    : "max-h-0 opacity-0"
-                }`}
-              >
-                <NodeList
-                  nodes={trees[cat.key] ?? []}
-                  depth={0}
-                  onNavigate={onClose}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </nav>
-    </>
-  );
-}
-
-function NodeList({
-  nodes,
-  depth,
-  onNavigate,
-}: {
-  nodes: TreeNode[];
-  depth: number;
-  onNavigate: () => void;
-}) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-
-  if (nodes.length === 0) return null;
-
-  return (
-    <ul className="space-y-1" style={{ paddingLeft: depth > 0 ? 12 : 8 }}>
-      {nodes.map((node) => {
-        const isOpen = expanded[node.name];
-
-        if (node.isFile) {
-          // File → navigable link: /classes/subfolder/filename
-          return (
-            <li key={node.path}>
+          {/* Links */}
+          <div className="flex flex-col gap-4 md:gap-6">
+            {/* Home */}
+            <motion.div
+              custom={0}
+              variants={linkVariants}
+              className="overflow-hidden"
+            >
               <Link
-                href={`/${node.path}`}
-                onClick={onNavigate}
-                className="block text-white/80 text-sm hover:text-white transition-colors py-1 pl-5"
+                href="/"
+                onClick={onClose}
+                className="text-5xl md:text-8xl font-sans tracking-tighter hover:text-blue-600 hover:translate-x-4 transition-all duration-300 block"
               >
-                {node.name}
+                HOME
               </Link>
-            </li>
-          );
-        }
+            </motion.div>
 
-        // Folder → toggle to show children
-        return (
-          <li key={node.path}>
-            <button
-              onClick={() =>
-                setExpanded((prev) => ({
-                  ...prev,
-                  [node.name]: !prev[node.name],
-                }))
-              }
-              className="flex items-center gap-1.5 text-white/80 text-sm hover:text-white transition-colors py-1 w-full text-left"
-            >
-              <ChevronRight
-                size={14}
-                className={`transition-transform duration-200 ${
-                  isOpen ? "rotate-90" : ""
-                }`}
-              />
-              {node.name}
-            </button>
-            <div
-              className={`overflow-hidden transition-all duration-200 ${
-                isOpen ? "max-h-75 opacity-100" : "max-h-0 opacity-0"
-              }`}
-            >
-              <NodeList
-                nodes={node.children}
-                depth={depth + 1}
-                onNavigate={onNavigate}
-              />
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+            {/* Categories with expandable subcategories */}
+            {CATEGORIES.map((cat, idx) => (
+              <motion.div
+                key={cat.key}
+                custom={idx + 1}
+                variants={linkVariants}
+                className="overflow-hidden"
+              >
+                <button
+                  onClick={() => toggle(cat.key)}
+                  className="flex items-center gap-4 text-5xl md:text-8xl font-sans tracking-tighter hover:text-blue-600 hover:translate-x-4 transition-all duration-300 text-left"
+                >
+                  {cat.label}
+                  <ChevronRight
+                    size={32}
+                    className={`transition-transform duration-300 ${
+                      expanded[cat.key] ? "rotate-90" : ""
+                    }`}
+                  />
+                </button>
+
+                {/* Subcategory links */}
+                <div
+                  className={`overflow-hidden transition-all duration-500 ${
+                    expanded[cat.key]
+                      ? "max-h-125 opacity-100 mt-4"
+                      : "max-h-0 opacity-0"
+                  }`}
+                >
+                  <ul className="space-y-2 pl-2">
+                    {(subs[cat.key] ?? []).map((sub) => (
+                      <li key={sub.path}>
+                        <Link
+                          href={`/${sub.path}`}
+                          onClick={onClose}
+                          className="block text-lg md:text-2xl font-medium text-black/50 hover:text-blue-600 hover:translate-x-2 transition-all duration-200 py-1 pl-6"
+                        >
+                          {sub.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Bottom social links */}
+          <motion.div
+            variants={linkVariants}
+            custom={CATEGORIES.length + 2}
+            className="absolute bottom-12 left-8 md:left-24 flex gap-8 text-sm font-bold tracking-widest text-gray-400"
+          >
+            <a href="#" className="hover:text-black transition-colors">
+              INSTAGRAM
+            </a>
+            <a href="#" className="hover:text-black transition-colors">
+              TWITTER
+            </a>
+            <a href="#" className="hover:text-black transition-colors">
+              GITHUB
+            </a>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

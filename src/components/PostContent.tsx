@@ -5,9 +5,12 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Calendar, Tag } from "lucide-react";
 import Markdown from "react-markdown";
 import type { Post } from "@/lib/posts";
+import { log } from "node:console";
 
 export default function PostContent({ post }: { post: Post }) {
   const router = useRouter();
+
+  console.log(post);
 
   return (
     <div className="min-h-screen bg-[#f8f8f8] font-sans selection:bg-blue-200 text-gray-900 pb-32">
@@ -20,7 +23,9 @@ export default function PostContent({ post }: { post: Post }) {
           <ArrowLeft size={16} />
           BACK
         </button>
-        <div className="font-bold tracking-[0.15em] text-sm">thisisstar</div>
+        <div className="font-bold tracking-[0.15em] text-sm">
+          {post.slug.split("/")[1]}
+        </div>
         <div className="w-16" />
       </header>
 

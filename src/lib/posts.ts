@@ -70,6 +70,46 @@ function collectSlugs(dir: string): string[][] {
  * Get a post by its full path relative to the posts directory.
  * e.g. getPostByPath("classes/기초컴퓨터그래픽스/graphics0312")
  */
+/**
+ * Check if a relative path under posts/ is a directory.
+ */
+export function isPostDirectory(relativePath: string): boolean {
+  const full = path.join(postsDirectory, relativePath);
+  return fs.existsSync(full) && fs.statSync(full).isDirectory();
+}
+
+/**
+ * Get all subdirectory names directly under a category.
+ * e.g. getSubdirectories("classes") → ["기초컴퓨터그래픽스", "컴퓨터네트워크"]
+ */
+export function getSubdirectories(category: string): string[][] {
+  const base = path.join(postsDirectory, category);
+  if (!fs.existsSync(base)) return [];
+
+  return fs
+    .readdirSync(base, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => [e.name]);
+}
+
+/**
+ * Get all posts inside a specific directory (non-recursive, direct children only).
+ */
+export function getPostsInDirectory(relativeDirPath: string): Post[] {
+  const dirPath = path.join(postsDirectory, relativeDirPath);
+  if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) return [];
+
+  const posts = fs
+    .readdirSync(dirPath)
+    .filter((name) => name.endsWith(".mdx") || name.endsWith(".md"))
+    .map((fileName) => {
+      const slug = `${relativeDirPath}/${fileName.replace(/\.mdx?$/, "")}`;
+      return getPostByPath(slug);
+    });
+
+  return posts.sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
 export function getPostByPath(relativePath: string): Post {
   const mdxPath = path.join(postsDirectory, `${relativePath}.mdx`);
   const mdPath = path.join(postsDirectory, `${relativePath}.md`);
