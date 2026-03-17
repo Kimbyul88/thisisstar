@@ -64,3 +64,43 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* ── Post prose ── */
+.post-prose {
+  & code:not(pre code) {
+    background-color: #f1f5f9;
+    padding: 0.15em 0.4em;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+    font-weight: 500;
+    color: #db2777;
+
+    &::before,
+    &::after {
+      content: none;
+    }
+  }
+
+  & blockquote {
+    border-left-color: #3b82f6;
+    background-color: #eff6ff;
+    padding: 0.25rem 1rem;
+    border-radius: 0 0.5rem 0.5rem 0;
+    font-style: normal;
+  }
+
+  & h1,
+  & h2,
+  & h3,
+  & h4 {
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  & a {
+    color: #2563eb;
+    &:hover {
+      color: #3b82f6;
+    }
+  }
+}
