@@ -121,12 +121,22 @@ function richTextToMd(
   return richTexts
     .map((t) => {
       let text = t.plain_text;
-      if (t.annotations?.code) text = `\`${text}\``;
-      if (t.annotations?.bold) text = `**${text}**`;
-      if (t.annotations?.italic) text = `*${text}*`;
-      if (t.annotations?.strikethrough) text = `~~${text}~~`;
-      if (t.href) text = `[${text}](${t.href})`;
-      return text;
+
+      // 공백이 마크다운 기호 안에 들어가면 렌더링이 깨지므로
+      // 앞뒤 공백을 분리해서 기호 바깥에 배치
+      const leading = text.match(/^\s*/)?.[0] ?? "";
+      const trailing = text.match(/\s*$/)?.[0] ?? "";
+      let inner = text.trim();
+
+      if (!inner) return text; // 공백만 있는 세그먼트는 그대로 유지
+
+      if (t.annotations?.code) inner = `\`${inner}\``;
+      if (t.annotations?.bold) inner = `**${inner}**`;
+      if (t.annotations?.italic) inner = `*${inner}*`;
+      if (t.annotations?.strikethrough) inner = `~~${inner}~~`;
+      if (t.href) inner = `[${inner}](${t.href})`;
+
+      return leading + inner + trailing;
     })
     .join("");
 }
