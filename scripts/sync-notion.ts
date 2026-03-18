@@ -141,7 +141,7 @@ function richTextToMd(
     .join("");
 }
 
-function blockToMd(block: NotionBlock): string {
+async function blockToMd(block: NotionBlock): Promise<string> {
   const b = block as Record<string, unknown>;
 
   switch (block.type) {
@@ -213,13 +213,32 @@ function blockToMd(block: NotionBlock): string {
       const bookmark = b.bookmark as { url: string };
       return `[${bookmark.url}](${bookmark.url})\n\n`;
     }
+    case "table": {
+      const rows = await getBlocks(block.id);
+      if (rows.length === 0) return "";
+
+      const lines: string[] = [];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i] as Record<string, unknown>;
+        const cells = (row.table_row as { cells: Array<[]> }).cells;
+        const cols = cells.map((cell) => richTextToMd(cell));
+        lines.push(`| ${cols.join(" | ")} |`);
+
+        // 헤더 뒤 구분선
+        if (i === 0) {
+          lines.push(`| ${cols.map(() => "---").join(" | ")} |`);
+        }
+      }
+      return lines.join("\n") + "\n\n";
+    }
     default:
       return "";
   }
 }
 
 async function blocksToMarkdown(blocks: NotionBlock[]): Promise<string> {
-  return blocks.map(blockToMd).join("");
+  const parts = await Promise.all(blocks.map(blockToMd));
+  return parts.join("");
 }
 
 // ========================================
