@@ -196,10 +196,30 @@ async function blockToMd(block: NotionBlock): Promise<string> {
       const callout = b.callout as {
         rich_text: [];
         icon?: { emoji?: string };
+        has_children?: boolean;
       };
       const text = richTextToMd(callout.rich_text);
       const icon = callout.icon?.emoji ?? "💡";
-      return `> ${icon} ${text}\n\n`;
+      const lines: string[] = [];
+      if (text) lines.push(`> ${icon} ${text}`);
+      else lines.push(`> ${icon}`);
+
+      // 자식 블록이 있으면 가져와서 blockquote 안에 렌더링
+      const hasChildren = (b as Record<string, unknown>).has_children as boolean;
+      if (hasChildren) {
+        const children = await getBlocks(block.id);
+        for (const child of children) {
+          const childMd = await blockToMd(child);
+          // 각 줄 앞에 > 붙여서 blockquote 유지
+          const quoted = childMd
+            .split("\n")
+            .map((line) => `> ${line}`)
+            .join("\n");
+          lines.push(quoted);
+        }
+      }
+
+      return lines.join("\n") + "\n\n";
     }
     case "image": {
       const image = b.image as {
