@@ -1,6 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
-import "dotenv/config";
+import * as crypto from "crypto";
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
 // ========================================
 // 타입 정의
 // ========================================
@@ -207,6 +209,31 @@ async function blockToMd(block: NotionBlock): Promise<string> {
       };
       const url =
         image.type === "external" ? image.external!.url : image.file!.url;
+
+      // external 이미지는 URL 그대로 사용, file(Notion 업로드) 이미지는 다운로드
+      if (image.type === "external") {
+        return `![image](${url})\n\n`;
+      }
+
+      // Notion file 이미지 → 로컬로 다운로드
+      const ext = path.extname(new URL(url).pathname) || ".png";
+      const hash = crypto.createHash("md5").update(url.split("?")[0]).digest("hex").slice(0, 12);
+      const filename = `${block.id.replace(/-/g, "").slice(0, 8)}-${hash}${ext}`;
+      const imgDir = path.join(process.cwd(), "public", "images");
+      const imgPath = path.join(imgDir, filename);
+
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const buffer = Buffer.from(await res.arrayBuffer());
+          fs.mkdirSync(imgDir, { recursive: true });
+          fs.writeFileSync(imgPath, buffer);
+          return `![image](/images/${filename})\n\n`;
+        }
+      } catch (e) {
+        console.warn(`  ⚠️  이미지 다운로드 실패: ${(e as Error).message}`);
+      }
+      // 다운로드 실패 시 원본 URL 폴백
       return `![image](${url})\n\n`;
     }
     case "bookmark": {
