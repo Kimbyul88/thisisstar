@@ -1,0 +1,168 @@
+---
+title: "Profiler와 메모지에이션 실험"
+date: "2026-01-03"
+tags: ["최적화"]
+category: "프론트엔드"
+---
+
+일단 리액트의 메모지에이션에는 대표적으로 3가지가 있는데..
+
+1. React.memo
+1. useMemo
+1. useCallback
+각자 정확하게 알아야 한다.
+
+1. React.memo : 컴포넌트를 다시 그릴까 말까 (부모의 파라미터가 바뀌지 않으면 자식을 다시 그리지 않는것을 다루기 위함)
+1. useMemo : 값 다시 계산 할까 말까
+1. useCallback : 함수 새로 만들까 말가
+```javascript
+const Parent = (props) => {
+  const onClick = () => {};
+  return <Child onClick={onClick} />;
+};
+```
+
+위 코드에서 Parent의 props가 바뀌면 Child는 다시 렌더 될텐데, 그러면 onClick 함수도 다시 만들어진다.
+이런 과정을 막기 위함이다.
+
+```javascript
+const Child = React.memo(({ onClick }) => {
+  return <button onClick={onClick} />;
+});
+```
+
+따라서 memo도 이렇게 같이 써주면 완벽한 메모지에이션이다.
+컴포넌트의 재렌더링까지 막을 수 있다. (필요없는 경우에!)
+
+# 실제 코드로 실험해보자
+
+### Bad version.
+
+1. 일단 엄청 무거운 데이터와 그것을 계산해서 렌더링하는 함수를 만든다.
+```javascript
+export type Item = { id: number; title: string };
+
+export const makeItems = (n = 1000): Item[] =>
+  Array.from({ length: n }, (_, i) => ({ id: i, title: `Item ${i}` }));
+
+// 엄청 크게 만든다.
+export const heavyWork = (seed: number) => {
+  let x = seed;
+  for (let i = 0; i < 30_000; i++) x = (x * 1664525 + 1013904223) % 4294967296;
+  return x;
+};
+```
+
+1. useMemo만 써본다.
+```javascript
+const items = useMemo(() => makeItems(1000), []);
+```
+
+다시 복습하자면 useMemo는 값 다시 계산할까 말까!
+이게 컴포넌트 만드는 React.memo랑 헷갈리는데 makeItems 안에는 반환하는 컴포넌트도 없고 배열 만드는 것이라서 useMemo가 적당하다.
+
+1. Profiler로 녹화해보기
+렌더 주기 별 최대 값이 2.5초이다.
+2.5초면 꽤 답답할 수 있는 시간..
+
+### Good version.
+
+지금 시간 엄청 걸리는 이벤트가
+
+1. 한 요소를 클릭할 때
+```javascript
+function Row({
+  item,
+  selectedId,
+  onSelect,
+}: {
+  item: Item;
+  selectedId: number | null;
+  onSelect: (id: number) => void;
+}) {
+  const score = heavyWork(item.id);
+  const selected = selectedId === item.id;
+  return (
+    <div
+      onClick={() => onSelect(item.id)}
+      style={{
+        padding: 8,
+        cursor: "pointer",
+        fontWeight: selected ? 700 : 400,
+      }}
+    >
+      {item.title} (score: {score})
+    </div>
+  );
+}
+```
+
+1000개의 Row의 selectedId를 비교해야한다.
+
+1. 검색한 것을 필터링할때
+```javascript
+ const filtered = items.filter((i) =>
+    i.title.toLowerCase().includes(query.toLowerCase())
+  );
+```
+
+```javascript
+onSelect={(id) => setSelectedId(id)}
+```
+
+1. 검색을 지우고 다시 모두를 재렌더할때
+```javascript
+ const filtered = items.filter((i) =>
+    i.title.toLowerCase().includes(query.toLowerCase())
+  );
+```
+
+자 여기서 1은 컴포넌트 재렌더링 이슈이고,
+2는 filtered는 재계산, onSelect는 필요없는 컴포넌트에서도 set함수가 일어나게 한다.
+3은 재계산 여부이다.
+
+따라서 1은 React.memo,
+2는 useMemo와 useCallback,
+3은 useMemo로 보완해주자.
+
+기존 이런 함수를
+
+```javascript
+onSelect={(id) => setSelectedId(id)}
+```
+
+이렇게 바꿨다.
+
+```javascript
+  const onSelect = useCallback((id: number) => {
+    setSelectedId(id);
+  }, []);
+```
+
+props에 바로 콜백 함수를 만들지 않고 따로 함수로 빼서 useCallback을 써주었다.
+
+추가로
+
+```javascript
+ selected={selectedId === item.id}
+```
+
+원래는 number로 전달되던 것을 boolean으로 바꿔주었다.
+
+마지막으로 Profiler로 확인해보자.
+
+![image](https://velog.velcdn.com/images/endofcentury/post/4d432733-a6bc-48b0-ad4f-152573939658/image.png)
+
+와 최대 값이 1.8ms이다.
+같은 행동에 대해 0.7s 감소했다.
+
+또한 전체적으로 확연히 감소했고, 특히 select시의 시간이 대폭 감소했다.
+
+다시 select 로직을 정리하면
+
+1. Row의 onSelect 작동
+1. onSelect에서 setSelectedId 실행
+1. selectedId가 바뀌면서 모든 Row에서 is selected? 를 비교하여 맞는 것만 볼드 처리_
+여기서 onSelect, Row에 메모지에이션이 적용됐더니 **2573.4ms에서 21.6ms로 감소 했다. **ㄷㄷㄷㄷ
+100배이상 차이난다. 와우
+

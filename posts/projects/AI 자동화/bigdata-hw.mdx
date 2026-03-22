@@ -1,0 +1,200 @@
+---
+title: "과제 채점 자동화 하기"
+date: "2026-03-21"
+tags: []
+category: "AI 자동화"
+---
+
+오늘의 실험 : 과제 채점도 자동화 하자
+
+## 1. 상황 파악
+
+실습 과제는 이렇다.
+
+- `%%writefile fibonacci.py` 로 파이썬 파일 만들기
+- `%run fibonacci.py` 로 실행하기
+- `import fibonacci` 해서 `fibonacci.fibo()` 호출하기
+세 가지가 핵심이었고, 채점 기준을 이렇게 잡았다.
+
+| 항목 | 배점 |
+| --- | --- |
+| `%%writefile` 사용 | 25점 |
+| `fibo()` 함수 정의 | 20점 |
+| `%run` 실행 | 25점 |
+| `import` 방식 | 30점 |
+
+, `__main__` 가드 같은 것도 넣었었는데
+
+ `__main__` 가드는 없어도 파이썬이 잘 돌아간다. 실습 조건에도 없었으니 점수에서 뺐다.
+
+## 2. ipynb는 그냥 JSON이다
+
+핵심 인사이트다.
+
+`.ipynb` 파일을 열어보면 사실 그냥 JSON이다. 파싱이 엄청 쉽다.
+
+```python
+def parse_ipynb(path):
+    with open(path, encoding='utf-8') as f:
+        nb = json.load(f)
+    cells = []
+    for cell in nb.get('cells', []):
+        src = ''.join(cell.get('source', []))
+        outputs = []
+        for out in cell.get('outputs', []):
+            text = out.get('text', out.get('data', {}).get('text/plain', []))
+            outputs.append(''.join(text))
+        cells.append({'source': src, 'outputs': outputs})
+    return cells
+```
+
+`nb['cells']`를 순회하면서 각 셀의 `source`(코드)와 `outputs`(실행 결과)를 뽑아온다.
+
+`source`는 원래 리스트로 저장되어 있어서 `''.join()`으로 합쳐주고,
+
+`outputs`도 `stream`이냐 `execute_result`냐에 따라 키가 달라서 둘 다 커버했다.
+
+이걸로 학생이 어떤 코드를 썼는지, 실제로 어떤 출력이 나왔는지를 한 번에 긁어올 수 있다.
+
+## 3. 채점 로직
+
+각 항목을 함수로 만들었다.
+
+```python
+def check_writefile(cells):
+    return any('%%writefile' in c['source'] and 'fibonacci' in c['source'] for c in cells)
+
+def check_fibo_func(cells):
+    # fibo(), fibonacci() 등 변형 모두 인정
+    return any(re.search(r'def\\s+fibo\\w*\\s*\\(', c['source'], re.IGNORECASE) for c in cells)
+
+def check_magic_run(cells):
+    return any(re.search(r'%run\\s+fibonacci', c['source']) for c in cells)
+
+def check_import(cells):
+    has_import = any('import fibonacci' in c['source'] for c in cells)
+    # fibonacci.함수() 형태로 실제 호출해야 인정
+    has_call = any(re.search(r'fibonacci\\.\\w+\\s*\\(', c['source']) for c in cells)
+    return has_import and has_call
+```
+
+모두 `any()`를 쓴다. 셀이 여러 개니까 하나라도 조건을 만족하면 O.
+
+`check_fibo_func`은 정규식 `def\\s+fibo\\w*\\s*\\(`으로 탐지한다.
+
+`fibo\\w*`이 핵심인데, `fibo` 뒤에 어떤 문자가 와도 다 잡는다는 뜻이다. `fibo()`, `fibonacci()`, `fibo_num()` 전부 OK.
+
+`check_import`는 조건이 두 개다.
+
+`import fibonacci`가 있는지, 그리고 `fibonacci.뭔가()`로 실제로 **모듈을 통해** 호출하는지.
+
+`import`만 해놓고 `fibo(7)` 직접 호출한 경우는 X다. 
+
+
+그리고 이 기준표를 리스트로 관리한다.
+
+```python
+CRITERIA = [
+    ('%%writefile',  check_writefile,  25),
+    ('fibo() 함수',  check_fibo_func,  20),
+    ('%run 실행',    check_magic_run,  25),
+    ('import 방식',  check_import,     30),
+]
+```
+
+나중에 항목 추가하거나 배점 바꿀 때 여기만 건드리면 된다.
+
+
+## 4. 실제 실행도 검증한다
+
+정적 분석만으로는 부족하다.
+
+코드가 있어도 실제로 돌아가는지가 중요하니까, `%%writefile` 셀에서 코드를 추출해서 직접 실행해봤다.
+
+```python
+def run_fibo_code(cells):
+    fibo_code = None
+    for c in cells:
+        if '%%writefile' in c['source'] and 'fibonacci' in c['source']:
+            # 첫 줄(%%writefile fibonacci.py)은 매직 커맨드라 제거
+            fibo_code = '\\n'.join(c['source'].split('\\n')[1:])
+            break
+
+    tmpdir = tempfile.mkdtemp()  # 임시 폴더 생성
+    with open(os.path.join(tmpdir, 'fibonacci.py'), 'w') as f:
+        f.write(fibo_code)
+
+    # subprocess로 격리된 환경에서 실행
+    test = f"""
+import sys, io
+sys.path.insert(0, r'{tmpdir}')
+import fibonacci
+import inspect
+
+# fibo 계열 함수 자동 탐지
+fibo_fn = None
+for name, obj in inspect.getmembers(fibonacci, inspect.isfunction):
+    if name.lower().startswith('fibo'):
+        fibo_fn = obj
+        break
+
+for n in [5, 7, 10]:
+    result = fibo_fn(n)
+    print(f'{n},{result}')
+"""
+    r = subprocess.run([sys.executable, '-c', test], capture_output=True, text=True, timeout=10)
+```
+
+포인트가 몇 가지 있다.
+
+첫째, `%%writefile` 첫 줄은 매직 커맨드라 실제 파이썬 코드가 아니다. `split('\\n')[1:]`로 잘라낸다.
+
+둘째, `subprocess`로 **완전히 격리된 환경**에서 돌린다. 채점 환경이 오염되면 안 되니까.
+
+셋째, `inspect.getmembers`로 모듈 안에서 `fibo`로 시작하는 함수를 자동으로 찾는다. 함수명이 `fibonacci()`든 `fibo()`든 알아서 잡힌다.
+
+`fibo(5)=5✓ | fibo(7)=13✓ | fibo(10)=55✓` 이런 식으로 결과가 나온다.
+
+## 5. 실수발견
+
+채점 돌렸더니 100점 미만이 6명 나왔다.
+
+근데 코드를 직접 열어보니까 억울한 케이스들이 있었다.
+
+| 학생 | 채점 결과 | 실제 |
+| --- | --- | --- |
+| 이00 | import 방식 X | `fibo()` 직접 호출 → 감점 맞음 |
+| 장00 | fibo() 함수 X | `fibonacci()`로 지었던 것 → 수정 후 인정 |
+| 신00 | `__main__` 가드 X | 없어도 정상 동작 → 항목 자체를 제거 |
+| 형00 | import 방식 X | `fibo(7)` 직접 호출 → 감점 맞음 |
+| 송00 | import 방식 X | `int()` 없이 input 받아서 TypeError → 감점 맞음 |
+| 송00 | 전체 X | 파일 미완성 제출 |
+
+6명 중 진짜 실수는 장00, 신00 둘이었고 나머지는 실제로 감점이 맞았다.
+
+*채점 자동화를 했어도 결국 의심스러운 건 직접 열어봐야 한다.*
+
+그래도 39개를 하나하나 여는 것보다 6개만 확인하는 게 훨씬 낫다.
+
+## 6. 코랩에서 실행
+
+전체 코드는 Google Colab에서 바로 쓸 수 있게 만들었다.
+
+```plain text
+submissions/ 폴더에 ipynb 파일 39개 업로드
+→ 셀 순서대로 실행
+→ 채점결과.csv 자동 다운로드
+```
+
+100점 미만 학생만 따로 뽑는 셀도 있어서, 누가 어떤 항목에서 틀렸는지 한눈에 볼 수 있다.
+
+```plain text
+🔍 100점 미만: 6명 / 전체 39명
+
+이름    학번      총점  미흡항목
+송00  20XXXXXX   40   %run 실행, import 방식
+장00  20XXXXXX   60   fibo() 함수, import 방식
+...
+```
+
+
