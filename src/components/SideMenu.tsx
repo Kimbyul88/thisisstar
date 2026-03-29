@@ -150,13 +150,10 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
             custom={CATEGORIES.length + 2}
             className="absolute bottom-12 left-8 md:left-24 flex gap-8 text-sm font-bold tracking-widest text-gray-400"
           >
-            <a href="#" className="hover:text-black transition-colors">
-              INSTAGRAM
-            </a>
-            <a href="#" className="hover:text-black transition-colors">
-              TWITTER
-            </a>
-            <a href="#" className="hover:text-black transition-colors">
+            <a
+              href="https://github.com/Kimbyul88/thisisstar"
+              className="hover:text-black transition-colors"
+            >
               GITHUB
             </a>
           </motion.div>
