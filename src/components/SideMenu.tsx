@@ -151,7 +151,8 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
             className="absolute bottom-12 left-8 md:left-24 flex gap-8 text-sm font-bold tracking-widest text-gray-400"
           >
             <a
-              href="https://github.com/Kimbyul88/thisisstar"
+              target="_blank"
+              href="https://github.com/Kimbyul88"
               className="hover:text-black transition-colors"
             >
               GITHUB

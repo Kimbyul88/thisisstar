@@ -8,42 +8,43 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowDown, Menu } from "lucide-react";
 import SideMenu from "@/components/SideMenu";
+import ProjectsSection from "@/components/ProjectsSection";
 
 const Marquee = () => {
   return (
     <div className="relative flex overflow-x-hidden py-12 ">
       <div className="animate-marquee whitespace-nowrap flex items-center">
         <span className="mx-8 text-3xl md:text-5xl font-light tracking-widest text-gray-800">
-          # プロジェクションマッピング
+          # Frontend Developement
         </span>
         <span className="mx-8 text-3xl md:text-5xl font-light tracking-widest text-gray-800">
-          # イベント事業
+          # Typescript
         </span>
         <span className="mx-8 text-3xl md:text-5xl font-light tracking-widest text-gray-800">
-          # 映像制作
+          # Next.js
         </span>
         <span className="mx-8 text-3xl md:text-5xl font-light tracking-widest text-gray-800">
-          # デジタルクリエイティブ事業
+          # React.js
         </span>
         <span className="mx-8 text-3xl md:text-5xl font-light tracking-widest text-gray-800">
-          # 世界を盛り上げる
+          # UI/UX Design
         </span>
       </div>
       <div className="absolute top-0 animate-marquee2 whitespace-nowrap flex items-center py-12">
         <span className="mx-8 text-3xl md:text-5xl font-light tracking-widest text-gray-800">
-          # プロジェクションマッピング
+          # Frontend Developement
         </span>
         <span className="mx-8 text-3xl md:text-5xl font-light tracking-widest text-gray-800">
-          # イベント事業
+          # Typescript
         </span>
         <span className="mx-8 text-3xl md:text-5xl font-light tracking-widest text-gray-800">
-          # 映像制作
+          # Next.js
         </span>
         <span className="mx-8 text-3xl md:text-5xl font-light tracking-widest text-gray-800">
-          # デジタルクリエイティブ事業
+          # React.js
         </span>
         <span className="mx-8 text-3xl md:text-5xl font-light tracking-widest text-gray-800">
-          # 世界を盛り上げる
+          # UI/UX Design
         </span>
       </div>
     </div>
@@ -133,12 +134,12 @@ export default function App() {
           </div>
         </div>
       </section>
-
+      <ProjectsSection />
       {/* Content Section */}
       <section className="relative bg-[#fafaf7] z-20 pb-64 pt-16">
         <div className="px-8 md:px-12 mb-16">
           <h2 className="text-sm font-bold tracking-[0.2em] text-gray-900">
-            WE DO
+            I DO
           </h2>
         </div>
 
