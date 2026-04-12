@@ -143,7 +143,7 @@ export default function App() {
           </h2>
         </div>
 
-        <Marquee />
+        {/* <Marquee /> */}
       </section>
 
       {/* Fixed Bottom Center Menu Button */}
