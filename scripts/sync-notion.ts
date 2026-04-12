@@ -199,10 +199,9 @@ async function blockToMd(block: NotionBlock): Promise<string> {
         has_children?: boolean;
       };
       const text = richTextToMd(callout.rich_text);
-      const icon = callout.icon?.emoji ?? "💡";
       const lines: string[] = [];
-      if (text) lines.push(`> ${icon} ${text}`);
-      else lines.push(`> ${icon}`);
+      if (text) lines.push(`> ${text}`);
+      else lines.push(`>`);
 
       // 자식 블록이 있으면 가져와서 blockquote 안에 렌더링
       const hasChildren = (b as Record<string, unknown>).has_children as boolean;
