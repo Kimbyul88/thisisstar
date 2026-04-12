@@ -5,6 +5,9 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Calendar, Tag } from "lucide-react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
+import rehypeRaw from "rehype-raw";
+import "highlight.js/styles/github-dark.css";
 import type { Post } from "@/lib/posts";
 import { log } from "node:console";
 
@@ -79,7 +82,12 @@ export default function PostContent({ post }: { post: Post }) {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="prose prose-lg prose-slate max-w-none post-prose"
         >
-          <Markdown remarkPlugins={[remarkGfm]}>{post.content}</Markdown>
+          <Markdown
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeRaw, rehypeHighlight]}
+          >
+            {post.content}
+          </Markdown>
         </motion.div>
       </article>
     </div>

@@ -108,6 +108,30 @@ async function getBlocks(pageId: string): Promise<NotionBlock[]> {
 // ========================================
 // Notion 블록 → 마크다운 변환
 // ========================================
+const NOTION_TEXT_COLORS: Record<string, string> = {
+  gray: "#787774",
+  brown: "#976d57",
+  orange: "#d9730d",
+  yellow: "#cb912f",
+  green: "#448361",
+  blue: "#337ea9",
+  purple: "#9065b0",
+  pink: "#c14c8a",
+  red: "#e03e3e",
+};
+
+const NOTION_BG_COLORS: Record<string, string> = {
+  gray: "#f1f1ef",
+  brown: "#f4eeee",
+  orange: "#fbecdd",
+  yellow: "#fbf3db",
+  green: "#edf3ec",
+  blue: "#e7f3f8",
+  purple: "#f4f0f7",
+  pink: "#faf0f5",
+  red: "#fdebec",
+};
+
 function richTextToMd(
   richTexts: Array<{
     plain_text: string;
@@ -116,6 +140,7 @@ function richTextToMd(
       italic?: boolean;
       code?: boolean;
       strikethrough?: boolean;
+      color?: string;
     };
     href?: string | null;
   }>,
@@ -138,6 +163,17 @@ function richTextToMd(
       if (t.annotations?.strikethrough) inner = `~~${inner}~~`;
       if (t.href) inner = `[${inner}](${t.href})`;
 
+      const color = t.annotations?.color;
+      if (color && color !== "default") {
+        if (color.endsWith("_background")) {
+          const hex = NOTION_BG_COLORS[color.replace("_background", "")];
+          if (hex) inner = `<span style="background-color:${hex}">${inner}</span>`;
+        } else {
+          const hex = NOTION_TEXT_COLORS[color];
+          if (hex) inner = `<span style="color:${hex}">${inner}</span>`;
+        }
+      }
+
       return leading + inner + trailing;
     })
     .join("");
@@ -149,7 +185,7 @@ async function blockToMd(block: NotionBlock): Promise<string> {
   switch (block.type) {
     case "paragraph": {
       const text = richTextToMd((b.paragraph as { rich_text: [] }).rich_text);
-      return text ? `${text}\n\n` : "\n";
+      return text ? `${text}\n\n` : "\n\n";
     }
     case "heading_1": {
       const text = richTextToMd((b.heading_1 as { rich_text: [] }).rich_text);
@@ -199,26 +235,18 @@ async function blockToMd(block: NotionBlock): Promise<string> {
         has_children?: boolean;
       };
       const text = richTextToMd(callout.rich_text);
-      const lines: string[] = [];
-      if (text) lines.push(`> ${text}`);
-      else lines.push(`>`);
+      let inner = text;
 
-      // 자식 블록이 있으면 가져와서 blockquote 안에 렌더링
       const hasChildren = (b as Record<string, unknown>).has_children as boolean;
       if (hasChildren) {
         const children = await getBlocks(block.id);
-        for (const child of children) {
-          const childMd = await blockToMd(child);
-          // 각 줄 앞에 > 붙여서 blockquote 유지
-          const quoted = childMd
-            .split("\n")
-            .map((line) => `> ${line}`)
-            .join("\n");
-          lines.push(quoted);
-        }
+        const childrenMd = (
+          await Promise.all(children.map((child) => blockToMd(child)))
+        ).join("");
+        inner = text + "\n" + childrenMd;
       }
 
-      return lines.join("\n") + "\n\n";
+      return `<div class="callout">\n\n${inner}\n\n</div>\n\n`;
     }
     case "image": {
       const image = b.image as {
