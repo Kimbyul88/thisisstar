@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowLeft, Calendar } from "lucide-react";
@@ -25,13 +25,15 @@ export default function CategoryListPage({
   posts,
 }: CategoryListPageProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const parentPath = pathname.split("/").slice(0, -1).join("/") || "/";
 
   return (
     <div className="min-h-screen bg-[#f8f8f8] font-sans selection:bg-blue-200 text-gray-900 pb-32">
       {/* Header */}
       <header className="fixed top-0 left-0 w-full px-8 md:px-12 py-6 flex justify-between items-center z-50 bg-[#f8f8f8]/80 backdrop-blur-md border-b border-gray-200/50">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push(parentPath)}
           className="flex items-center gap-2 text-xs font-bold tracking-[0.15em] hover:text-blue-600 transition-colors"
         >
           <ArrowLeft size={16} />
