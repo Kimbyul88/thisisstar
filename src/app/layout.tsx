@@ -28,7 +28,7 @@ export default function RootLayout({
       <head>
         <Script
           id="clarity-script"
-          type="text/javascript"
+          strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `(function(c,l,a,r,i,t,y){
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
