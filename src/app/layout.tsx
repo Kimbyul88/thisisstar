@@ -27,6 +27,7 @@ export default function RootLayout({
     <html lang="ko">
       <head>
         <Script
+          id="clarity-script"
           type="text/javascript"
           dangerouslySetInnerHTML={{
             __html: `(function(c,l,a,r,i,t,y){
